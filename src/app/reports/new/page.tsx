@@ -1,126 +1,88 @@
-// src/app/reports/new/page.tsx
 "use client";
-
 import React, { useState } from "react";
 
-/**
- * Minimal client page for submitting a report.
- * - Declares all state variables (including `title`) so "title is not defined" stops.
- * - Robust handleSubmit: prints server responses to console and shows user-friendly messages.
- * - Uses window.location.href for redirect (safe fallback).
- */
-
-export default function NewReportPageClient() {
-  // REQUIRED state variables used by the form and submit handler
-  const [title, setTitle] = useState(""); // <--- this fixes "title is not defined"
+export default function NewReportPage() {
+  const [title, setTitle] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
   const [description, setDescription] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); // <- absolutely required
+    if (submitting) return;
+    setSubmitting(true);
+    setStatus("Submitting...");
 
     try {
       const res = await fetch("/api/reports/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, targetUrl, evidenceUrl }),
+        body: JSON.stringify({
+          title,
+          targetUrl,
+          description,
+        }),
       });
 
-      // Defensive parse
-      const text = await res.text();
-      let data: any = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch (parseErr) {
-        data = { ok: res.ok, text };
-      }
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        console.error("Server returned error:", res.status, data);
-        setMessage(data?.error ?? data?.text ?? `Server error: ${res.status}`);
+        console.error("Create report failed", data);
+        setStatus(`Error: ${data?.error ?? "Failed to create report"}`);
+        setSubmitting(false);
         return;
       }
 
-      console.log("Create report response:", data);
-      setMessage("Report submitted! Redirecting...");
+      setStatus("Report submitted! Redirecting to feed...");
+      // small delay so the user sees the success message
       setTimeout(() => {
-        // safe redirect (works whether you're using App Router or Pages Router)
-        window.location.href = "/";
-      }, 900);
-    } catch (err: any) {
-      console.error("Fetch failed:", err);
-      setMessage(`Network / fetch error: ${err?.message ?? String(err)}`);
-    } finally {
-      setLoading(false);
+        window.location.href = "/reports";
+      }, 700);
+    } catch (err) {
+      console.error(err);
+      setStatus("Network error while submitting report");
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-8 max-w-xl mx-auto text-white">
       <h1 className="text-2xl font-bold mb-4">Submit a Report</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block">
-          <div className="font-medium">Title</div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            className="w-full border rounded p-2"
-            placeholder="Short title (e.g., 'Phishing landing page for bank X')"
-          />
-        </label>
-
-        <label className="block">
-          <div className="font-medium">Target URL</div>
-          <input
-            value={targetUrl}
-            onChange={(e) => setTargetUrl(e.target.value)}
-            required
-            type="url"
-            className="w-full border rounded p-2"
-            placeholder="https://short.url/abc or https://example.com/phish"
-          />
-        </label>
-
-        <label className="block">
-          <div className="font-medium">Description (optional)</div>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full border rounded p-2"
-            rows={4}
-            placeholder="What did you notice? forms? suspicious domain? etc."
-          />
-        </label>
-
-        <label className="block">
-          <div className="font-medium">Evidence URL (optional)</div>
-          <input
-            value={evidenceUrl}
-            onChange={(e) => setEvidenceUrl(e.target.value)}
-            type="url"
-            className="w-full border rounded p-2"
-            placeholder="Link to an image or screenshot hosted elsewhere"
-          />
-        </label>
-
+        <input
+          type="text"
+          placeholder="Short title (optional)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+        />
+        <input
+          type="url"
+          placeholder="Target URL (required)"
+          value={targetUrl}
+          onChange={(e) => setTargetUrl(e.target.value)}
+          required
+          className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+        />
+        <textarea
+          placeholder="Description (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+        />
         <div>
           <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
+            type="submit"           // <- ensure button type is "submit"
+            disabled={submitting}
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold"
           >
-            {loading ? "Submitting..." : "Submit Report"}
+            {submitting ? "Submitting..." : "Submit Report"}
           </button>
         </div>
-
-        {message && <div className="mt-2 text-sm">{message}</div>}
       </form>
+
+      {status && <p className="mt-4 text-sm text-gray-300">{status}</p>}
     </div>
   );
 }

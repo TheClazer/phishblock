@@ -1,126 +1,106 @@
-// src/app/reports/new/page.tsx
+// src/app/reports/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 
-/**
- * Minimal client page for submitting a report.
- * - Declares all state variables (including `title`) so "title is not defined" stops.
- * - Robust handleSubmit: prints server responses to console and shows user-friendly messages.
- * - Uses window.location.href for redirect (safe fallback).
- */
+type Report = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  targetUrl?: string | null;
+  targetCanonical?: string | null;
+  evidenceCid?: string | null;
+  createdAt: string;
+};
 
-export default function NewReportPageClient() {
-  // REQUIRED state variables used by the form and submit handler
-  const [title, setTitle] = useState(""); // <--- this fixes "title is not defined"
-  const [targetUrl, setTargetUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+export default function ReportsFeedPage() {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch("/api/reports/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, targetUrl, evidenceUrl }),
-      });
-
-      // Defensive parse
-      const text = await res.text();
-      let data: any = null;
+  useEffect(() => {
+    let mounted = true;
+    async function fetchReports() {
       try {
-        data = text ? JSON.parse(text) : null;
-      } catch (parseErr) {
-        data = { ok: res.ok, text };
+        const res = await fetch("/api/reports/list");
+        if (!res.ok) throw new Error("Failed to fetch reports");
+        const data = await res.json();
+        // Support both shapes: { reports: [...] } OR [...]
+        const arr = Array.isArray(data) ? data : data?.reports ?? [];
+        if (mounted) setReports(arr);
+      } catch (err) {
+        console.error("Error fetching reports", err);
+        if (mounted) setReports([]);
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      if (!res.ok) {
-        console.error("Server returned error:", res.status, data);
-        setMessage(data?.error ?? data?.text ?? `Server error: ${res.status}`);
-        return;
-      }
-
-      console.log("Create report response:", data);
-      setMessage("Report submitted! Redirecting...");
-      setTimeout(() => {
-        // safe redirect (works whether you're using App Router or Pages Router)
-        window.location.href = "/";
-      }, 900);
-    } catch (err: any) {
-      console.error("Fetch failed:", err);
-      setMessage(`Network / fetch error: ${err?.message ?? String(err)}`);
-    } finally {
-      setLoading(false);
     }
-  }
+    fetchReports();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) return <div className="p-6 text-gray-400">Loading reports...</div>;
+
+  if (!reports.length)
+    return (
+      <div className="p-6 text-gray-400">
+        No reports found. Submit one at{" "}
+        <a href="/reports/new" className="text-blue-400 underline">
+          /reports/new
+        </a>
+      </div>
+    );
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Submit a Report</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block">
-          <div className="font-medium">Title</div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            className="w-full border rounded p-2"
-            placeholder="Short title (e.g., 'Phishing landing page for bank X')"
-          />
-        </label>
+    <div className="p-8 max-w-3xl mx-auto space-y-4">
+      <h1 className="text-2xl font-bold mb-4 text-white">Latest Reports</h1>
+      {reports.map((r) => (
+        <div
+          key={r.id}
+          className="border border-gray-700 rounded-lg p-4 bg-gray-900 shadow-md"
+        >
+          <h2 className="text-lg font-semibold text-white">
+            {r.title || r.targetCanonical || "Untitled Report"}
+          </h2>
 
-        <label className="block">
-          <div className="font-medium">Target URL</div>
-          <input
-            value={targetUrl}
-            onChange={(e) => setTargetUrl(e.target.value)}
-            required
-            type="url"
-            className="w-full border rounded p-2"
-            placeholder="https://short.url/abc or https://example.com/phish"
-          />
-        </label>
+          <p className="text-sm text-gray-400">
+            Target:{" "}
+            {r.targetCanonical || r.targetUrl ? (
+              <a
+                href={r.targetCanonical ?? r.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                {r.targetCanonical ?? r.targetUrl}
+              </a>
+            ) : (
+              "—"
+            )}
+          </p>
 
-        <label className="block">
-          <div className="font-medium">Description (optional)</div>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full border rounded p-2"
-            rows={4}
-            placeholder="What did you notice? forms? suspicious domain? etc."
-          />
-        </label>
+          {r.description && <p className="text-gray-300 mt-2">{r.description}</p>}
 
-        <label className="block">
-          <div className="font-medium">Evidence URL (optional)</div>
-          <input
-            value={evidenceUrl}
-            onChange={(e) => setEvidenceUrl(e.target.value)}
-            type="url"
-            className="w-full border rounded p-2"
-            placeholder="Link to an image or screenshot hosted elsewhere"
-          />
-        </label>
+          {r.evidenceCid && (
+            <p className="text-sm mt-2">
+              Evidence:{" "}
+              <a
+                href={`https://ipfs.io/ipfs/${r.evidenceCid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-400 hover:underline"
+              >
+                {r.evidenceCid}
+              </a>
+            </p>
+          )}
 
-        <div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
-          >
-            {loading ? "Submitting..." : "Submit Report"}
-          </button>
+          <p className="text-xs text-gray-500 mt-2">
+            Submitted: {new Date(r.createdAt).toLocaleString()}
+          </p>
         </div>
-
-        {message && <div className="mt-2 text-sm">{message}</div>}
-      </form>
+      ))}
     </div>
   );
 }

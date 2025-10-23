@@ -8,7 +8,7 @@ import { pinJsonToPinata } from "../../../../lib/pinning";
 
 type Data = { ok: boolean; report?: any; error?: string };
 
-const MAX_REPORTS_PER_HOUR = 999;
+const MAX_REPORTS_PER_HOUR = 6;
 
 async function followRedirectsAndGetChain(url: string) {
   const redirectChain: string[] = [];

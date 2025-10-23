@@ -30,7 +30,6 @@ export async function pinJsonToPinata(json: any): Promise<string> {
   }
 
   const data = await res.json();
-  // Example response: { "IpfsHash": "Qm...", "PinSize": 123, "Timestamp": "2025-10-23T..." }
   if (!data || !data.IpfsHash) {
     throw new Error("Invalid response from Pinata");
   }
