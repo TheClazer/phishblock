@@ -1,0 +1,34 @@
+/* phishblock/src/styles/globals.css
+   Minimal global CSS so Next.js stops failing on import.
+   Add your own styles or Tailwind directives later.
+*/
+
+/* Reset-ish */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Basic body defaults */
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #fff;
+  color: #111;
+}
+
+/* simple container utility */
+.container {
+  max-width: 1024px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* small typographic helpers */
+h1, h2, h3, h4 { line-height: 1.1; }
+p { margin-bottom: 0.75rem; }

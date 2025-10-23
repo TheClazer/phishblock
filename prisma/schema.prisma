@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(uuid()) // Universally Unique Identifier (UUID)
+  oauthProvider String // e.g., "github"
+  oauthId       String     @unique
+  username      String
+  email         String?
+  avatarUrl     String?
+  reputation    Int        @default(0) // simple trust score; modify later
+  createdAt     DateTime   @default(now())
+  votes         Vote[]
+  reports       Report[]   @relation("reportsByUser")
+  validator     Validator? // <-- back-relation: a User may be a Validator
+}
+
+model Report {
+  id              String    @id @default(uuid())
+  reporterId      String
+  reporter        User      @relation("reportsByUser", fields: [reporterId], references: [id])
+  targetType      String // "url" or "wallet"
+  targetCanonical String // resolved + normalized target
+  redirectChain   String? // JSON stringified array of redirect URLs (optional)
+  evidenceCid     String? // InterPlanetary File System (IPFS) Content Identifier (CID) for the evidence JSON or screenshot
+  description     String?
+  status          String    @default("pending") // "pending", "validated", "rejected"
+  yesCount        Int       @default(0)
+  noCount         Int       @default(0)
+  createdAt       DateTime  @default(now())
+  finalizedAt     DateTime?
+  votes           Vote[]
+  audits          Audit[]
+  metadataCid     String? // optional final metadata CID pinned before anchoring
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id])
+  voterId   String
+  voter     User     @relation(fields: [voterId], references: [id])
+  vote      Boolean
+  weight    Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([reportId, voterId]) // enforces one vote per user per report at DB level
+}
+
+model Audit {
+  id         String   @id @default(uuid())
+  reportId   String
+  report     Report   @relation(fields: [reportId], references: [id])
+  actorId    String? // can be null (system action)
+  action     String // e.g., "report_created", "vote_cast", "finalized", "pin_success"
+  payloadCid String? // InterPlanetary File System (IPFS) Content Identifier (CID) of JSON payload for the action (if any)
+  message    String? // short message for convenience
+  timestamp  DateTime @default(now())
+}
+
+model Validator {
+  id      String   @id @default(uuid())
+  userId  String   @unique
+  user    User     @relation(fields: [userId], references: [id])
+  weight  Int      @default(2) // trusted validators can have higher weight; configurable
+  addedAt DateTime @default(now())
+}
